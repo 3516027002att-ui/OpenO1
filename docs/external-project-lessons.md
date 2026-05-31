@@ -37,6 +37,7 @@
 | 2026-05-26 | AgentScope | event/message 分离、workspace、middleware、tool group、permission、service 化 | ReasoningEventLog、ProofStateContext、VerifierGate、MathWorkspace |
 | 2026-05-30 | OpenCode / opencoder / Cline / OpenHands | goal 不应只是 prompt；需要代码层 goal loop、状态词、审阅器、续跑机制 | GoalRuntime、CompletionAuditor、ContinuationBuilder、StopController |
 | 2026-05-30 | Opus subagent 记录 / DeerFlow 2.0 / AutoGen / CrewAI / AgentScope / Anthropic | AgentTeam 应是弹性调度状态机；档位定义能力边界而非固定流程；subagent 需要结构化报告、证据门禁、超时接管和续跑 | ReasoningLevel、AgentTeamRuntime、SubagentReport、AgentTaskSpec、ProcessPolicy、BudgetManager |
+| 2026-05-31 | Codex / Claude Code / Cursor 的 subagent 策略对比 | subagent 委派策略也是对模型训练分布的逆向适配；不同模型需要不同 delegation_control、tool format、角色自由度和验证依赖 | ModelCapabilityProfile、ModelAdaptationPolicy、DelegationDecision、模型适配型 PolicyEngine |
 
 ## AgentScope 摘要
 
@@ -220,3 +221,40 @@ OpenO1 的 AgentTeam 不应设计成固定流程图，也不应退化成多个 a
 6. 新增 `CompletionAuditor`，拒绝只靠 worker 自报完成。
 7. 新增 `ContinuationBuilder`，在未完成但预算未耗尽时生成下一轮最小任务。
 8. 修改 `docs/multi-agent-protocol.md`，把固定路线数改为弹性路线数，把固定流程改为能力槽和 policy 决策。
+
+## 模型训练分布与 subagent 委派策略摘要
+
+观察日期：2026-05-31
+
+详细记录：`docs/external-lessons/model-training-distribution-and-delegation.md`
+
+参考对象：Codex、Claude Code、Cursor 在 subagent 委派策略上的差异。
+
+### 对 OpenO1 的迁移判断
+
+Subagent 策略不应该照搬任何一家。OpenO1 应根据接入模型的训练分布、工具调用可靠性、上下文管理能力、元决策能力、用户档位和任务风险，动态决定“谁来判断是否委派、何时委派、委派给谁、是否等待、如何回收结果”。
+
+关键原则：
+
+- subagent 首先解决上下文隔离问题，把搜索、日志、文件读取、探索性试错放进独立 context window，主线只接收干净摘要和证据。
+- Codex-like 模型更适合 user_explicit 或 harness_triggered 委派，因为其训练目标更偏遵循指令、执行、跑测试直到通过；让模型自主决定委派会造成奖励归因模糊。
+- Claude-like 模型可以允许 model_suggested，必要时在高档位允许有限 model_autonomous，但仍必须受预算、超时、证据和 ReviewGate 约束。
+- Cursor-compatible 多模型场景更适合固定角色、详细工具描述和 harness 审批，因为不能假设所有第三方模型都具备良好的委派判断力。
+- 本地弱模型默认不应担任 Coordinator，更适合做 Worker、Candidate Solver、Local Verifier 或格式转换器。
+
+### 推荐新增对象
+
+- `ModelCapabilityProfile`：描述模型的指令遵循、工具调用可靠性、委派判断、上下文管理、自检、长程规划能力，以及是否适合担任 Coordinator / Worker / Verifier / Critic。
+- `ModelAdaptationPolicy`：定义 delegation_control、tool_format_preference、subagent_role_style、context_strategy 和 verification_dependency。
+- `DelegationDecision`：记录委派来源、是否批准、理由、角色、预期上下文收益、预期成本和风险。
+
+### 近期可转化任务
+
+1. 新增 `ModelCapabilityProfile` 数据结构。
+2. 新增 `ModelAdaptationPolicy` 数据结构。
+3. 在 `PolicyEngine.decide()` 中同时考虑 task profile、reasoning level、model profile。
+4. 把 subagent 委派模式拆成 user_explicit、harness_triggered、model_suggested、model_autonomous。
+5. 给本地模型默认设置为 harness_triggered，不让其直接担任 Coordinator。
+6. 给高档位任务加入 context pollution risk 评估：当搜索、日志、文件读取会污染主上下文时，优先使用隔离 subagent。
+7. 为训练数据增加标签：委派是否必要、委派对象、委派收益、是否过度委派、是否本可主 agent 完成。
+8. 将“模型建议委派但 harness 拒绝/批准”的记录保存进 trace，作为未来训练元决策能力的数据。
