@@ -1,13 +1,124 @@
 ---
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'OpenO1 Personal Blog',
+  description = 'OpenO1 项目日志、Agent 设计思考和推理实验心得。'
+} = Astro.props;
+const base = import.meta.env.BASE_URL;
 ---
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenO1 Personal Blog</title>
+    <meta name="description" content={description}>
+    <title>{title}</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        line-height: 1.75;
+        color: #1f2937;
+        background: #f8fafc;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      a {
+        color: #2563eb;
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .site-shell {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 32px 20px 64px;
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: center;
+        margin-bottom: 56px;
+        border-bottom: 1px solid #e5e7eb;
+        padding-bottom: 18px;
+      }
+
+      .brand {
+        font-weight: 700;
+        color: #111827;
+      }
+
+      nav {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        font-size: 0.95rem;
+      }
+
+      main {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 20px;
+        padding: 38px;
+        box-shadow: 0 24px 80px rgba(15, 23, 42, 0.06);
+      }
+
+      h1 {
+        line-height: 1.25;
+        letter-spacing: -0.03em;
+        margin-top: 0;
+      }
+
+      .muted {
+        color: #6b7280;
+      }
+
+      .post-list {
+        list-style: none;
+        padding: 0;
+      }
+
+      .post-list li {
+        padding: 18px 0;
+        border-bottom: 1px solid #f1f5f9;
+      }
+
+      @media (max-width: 680px) {
+        header {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        main {
+          padding: 26px 20px;
+        }
+      }
+    </style>
   </head>
   <body>
-    <slot />
+    <div class="site-shell">
+      <header>
+        <a class="brand" href={base}>OpenO1 Blog</a>
+        <nav>
+          <a href={`${base}posts/`}>文章</a>
+          <a href="https://github.com/3516027002att-ui/OpenO1">GitHub</a>
+        </nav>
+      </header>
+      <main>
+        <slot />
+      </main>
+    </div>
   </body>
 </html>
