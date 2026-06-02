@@ -1,0 +1,14 @@
+---
+import Layout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+const posts = await getCollection('posts');
+---
+
+<Layout>
+  <h1>文章列表</h1>
+  <ul>
+    {posts.map(post => (
+      <li><a href={`/posts/${post.slug}`}>{post.data.title}</a> - {post.data.date.toDateString()}</li>
+    ))}
+  </ul>
+</Layout>
