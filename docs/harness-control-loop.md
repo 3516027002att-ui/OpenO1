@@ -1,53 +1,51 @@
-# Harness Control Loop 设计记录
+# Agentic Reasoning Control Loop 设计记录
 
-## 1. 背景
+## 1. 定位
 
-模型 API 的基本形态是一次请求返回一次响应。OpenO1 不能假设模型会在单次 API 调用中持续运行、自动执行工具或自行保存工作状态。
+模型 API 的基本形态通常仍是一次请求返回一次响应。即使模型已经具备很强的工具使用和 Agentic 能力，长时间推理仍需要外层 runtime 维护状态、执行动作、管理预算并决定何时结束。
 
-OpenO1 的多步推理、工具调用和继续修正，必须由外层 harness / center engine 驱动。模型只在每一轮根据当前上下文输出下一步意图；真正的工具执行、状态维护、预算控制和终止批准由中心引擎完成。
+OpenO1 的目标不只是让模型持续执行任务，还要把行动组织成推理：搜索用于获得证据，代码用于构造实验，工具结果用于验证或推翻命题，并行 Agent 用于探索相互独立的假设，回滚用于撤销错误前提。
 
 核心原则：
 
-- 模型不是执行器；模型只提交结构化意图、候选结论或候选答案。
-- harness 是唯一状态所有者，负责把工具结果、审阅意见和任务状态写回 Shared Context。
+- 模型提交结构化意图、候选命题、研究路线或候选答案。
+- harness / center engine 是唯一状态所有者，负责执行工具、记录证据、管理分支、预算和终止。
+- 所有行动必须服务于未决问题、命题验证、反例搜索或路线推进。
 - Solver 只能申请结束，不能批准结束。
-- 最终输出必须经过 ReviewGate / StopController 放行。
-- 工具结果是证据，不自动等于真理；必须记录其适用范围和局限。
+- 工具结果是带边界的证据，不自动等于真理。
+- Runtime 应按需增加或删除流程，不能把固定多 Agent 仪式当作永久架构。
 
 ## 2. 基本循环
 
 ```text
 user task
-  -> build context
-  -> call model once
-  -> parse model action
-  -> execute tool / update state / review draft
-  -> append observation to Shared Context
-  -> call model again
-  -> repeat until FINAL / BEST_EFFORT / FAIL
+  -> build reasoning state
+  -> choose next unresolved target
+  -> call model
+  -> parse proposed action
+  -> execute tool / branch route / update claim / review draft
+  -> append bounded evidence to reasoning state
+  -> estimate progress and marginal value
+  -> continue, backtrack, branch, finalize, or stop
 ```
 
-在实现上，这不是一次 API 调用中的连续思考，而是多次 API 调用之间由 harness 维持连续性。
+在实现上，连续思考由多次模型调用、工具执行和结构化状态更新共同构成：
 
 ```python
 while not state.done:
-    context = build_context(state)
+    target = controller.choose_target(state)
+    context = build_context(state, target)
     action = llm.call(context, tools=tool_schemas)
 
-    if action.type == "tool_call":
-        result = tool_executor.run(action.tool_name, action.arguments)
-        state.add_tool_observation(result)
-        continue
+    observation = runtime.execute(action)
+    state.apply(observation)
 
     if action.type == "draft_final":
         review = review_gate.check(state, action.answer)
         decision = stop_controller.decide(state, action, review)
-
         if decision.type == "FINAL":
             return action.answer
-
         state.add_review_feedback(review)
-        continue
 
     if budget.exceeded() or state.no_progress_too_long():
         return build_best_effort_answer(state)
@@ -55,23 +53,28 @@ while not state.done:
 
 ## 3. 推荐动作枚举
 
-模型每轮输出不应是自由文本，而应解析为中心引擎可处理的动作：
+模型每轮输出应解析为中心引擎可处理的动作：
 
 ```ts
 type EngineAction =
-  | { type: "continue_solve"; reason: string; target?: string }
+  | { type: "continue_solve"; reason: string; target: ClaimId | SubgoalId }
+  | { type: "propose_route"; route: RoutePlan; reason: string }
+  | { type: "branch_route"; parent_route_id: string; route: RoutePlan; reason: string }
+  | { type: "backtrack"; target: ClaimId | RouteId; reason: string }
   | { type: "tool_call"; tool_name: string; arguments: unknown; reason: string }
+  | { type: "request_review"; target: ClaimId | RouteId }
   | { type: "draft_final"; answer: string; confidence: number }
-  | { type: "request_review"; target: string }
   | { type: "report_blocker"; blocker: Blocker }
 ```
 
-中心引擎的控制决策建议使用更少、更硬的状态：
+中心引擎只使用少量硬决策：
 
 ```ts
 type ControllerDecision =
-  | { type: "CONTINUE_SOLVE"; reason: string }
+  | { type: "CONTINUE"; reason: string }
   | { type: "CALL_TOOL"; tool_name: string; arguments: unknown }
+  | { type: "BRANCH"; reason: string }
+  | { type: "BACKTRACK"; reason: string }
   | { type: "REVIEW"; reason: string }
   | { type: "REVISE"; blockers: Blocker[] }
   | { type: "FINAL"; reason: string }
@@ -79,19 +82,22 @@ type ControllerDecision =
   | { type: "FAIL"; blockers: Blocker[] }
 ```
 
-## 4. Shared Context 最小字段
+## 4. Shared Reasoning State
 
-harness 每轮重新组装上下文，不应把全部聊天历史无脑塞回模型。推荐维护结构化状态：
+harness 每轮重新组装上下文，不应把全部聊天历史无差别塞回模型。推荐维护动态研究状态：
 
 ```ts
-type SharedContext = {
+type SharedReasoningState = {
   task: TaskSpec
   open_subgoals: Subgoal[]
   claims: ClaimRecord[]
+  hypotheses: HypothesisRecord[]
+  routes: RouteRecord[]
+  conflicts: ConflictRecord[]
   tool_trace: ToolObservation[]
+  failed_attempts: FailedAttempt[]
   review_notes: ReviewNote[]
   blockers: Blocker[]
-  selected_route_id?: string
   final_candidate?: FinalDraft
   budget: BudgetState
   progress: ProgressState
@@ -100,116 +106,127 @@ type SharedContext = {
 
 关键规则：
 
-- `verified` 只能由 Verifier / DomainVerifier / ReviewGate 写入。
+- `verified` 只能由 Verifier、DomainVerifier 或 ReviewGate 写入。
 - `final_candidate` 只是候选答案，不能直接交给用户。
-- 工具调用结果必须写入 `tool_trace`，并标注来源、时间、输入、输出、置信度和局限。
-- 被驳回路线、失败工具结果、重复错误也要记录，避免模型反复走同一个坑。
+- 工具结果必须记录来源、时间、输入、输出、置信度和局限。
+- 被驳回路线、失败实验和重复错误必须保留，避免系统反复进入相同死路。
+- 当前上下文只装载与目标命题最相关的状态；完整轨迹保存在外部状态中。
 
-## 5. 工具结果的语义
+## 5. 工具结果的推理语义
 
-工具结果必须作为带边界的证据处理。
-
-例如：
+工具调用必须对应明确的认知目的：
 
 ```ts
 type ToolObservation = {
   tool_name: string
   input: unknown
   output: unknown
+  purpose: "collect_evidence" | "find_counterexample" | "test_hypothesis" | "verify_claim" | "inspect_state" | "other"
   result_type: "search" | "symbolic_check" | "numeric_check" | "test" | "proof_check" | "file_edit" | "other"
   confidence?: number
   supports: ClaimId[]
+  contradicts: ClaimId[]
   limitations: string[]
   error?: string
 }
 ```
 
-示例限制：
+典型边界：
 
-- 符号计算能验证代数展开，但不一定处理定义域。
-- 数值测试能发现反例，但不能证明恒成立。
-- 搜索结果能提供外部证据，但需要来源可靠性判断。
+- 符号计算能验证代数展开，但可能忽略定义域。
+- 数值测试能发现反例，不能证明恒成立。
+- 搜索结果能提供外部证据，仍需判断来源可靠性与时效性。
 - 单元测试通过只能说明覆盖用例通过，不能证明程序完全正确。
 
-因此 ReviewGate 不能只检查“有没有工具结果”，还必须检查“工具结果能证明什么、不能证明什么”。
+ReviewGate 必须检查工具结果能够支持什么，也要检查它无法支持什么。
 
-## 6. 终止批准权
+## 6. 路线分叉与回溯
+
+OpenO1 不能只沿一条错误路线持续修补。
+
+建议分叉的情况：
+
+- 存在多个实质不同的假设或解法。
+- 当前路线依赖高风险前提。
+- 验证结果互相冲突。
+- 同一路线多次修复仍无明显进展。
+- 新证据打开了不同的搜索空间。
+
+建议回溯的情况：
+
+- 上游关键命题被证伪。
+- 工具结果证明问题定义或约束理解错误。
+- 当前路线只能通过不断增加未经验证的假设维持。
+- 继续投入的预期收益显著低于探索替代路线。
+
+## 7. 终止批准权
 
 OpenO1 的硬原则：
 
 ```text
 Solver can request final.
-Harness decides final.
+Runtime decides final.
 ```
 
-即：Solver / Worker / MainAgent 可以提交 `draft_final`，但不能直接输出给用户。中心引擎必须把候选答案送入 ReviewGate 和 StopController。
+允许 `FINAL` 的典型条件：
 
-允许 FINAL 的典型条件：
-
-- 原始任务目标已经明确覆盖。
-- `open_subgoals` 为空，或剩余项被标记为非必要并说明原因。
+- 原始任务目标已经覆盖。
+- 必要子目标已解决，剩余未决项有明确边界说明。
 - 无未解决的 fatal / major blocker。
-- 关键 claim 已验证，或者明确说明无法验证的边界。
+- 关键命题有充分证据或完整推导。
 - DomainVerifier 没有阻断项。
 - ReviewGate 返回 pass。
-- 继续推理的边际收益不足以消耗更多预算。
+- 继续推理的预期收益不足以消耗更多预算。
 
-必须继续或修复的典型条件：
+必须继续、分叉或回溯的典型条件：
 
 - 任务目标没有完全回答。
-- 仍有未验证关键 claim。
+- 仍有未验证关键命题。
 - 工具结果与推导冲突。
-- 出现定义域、边界条件、漏解、增根、变量不一致等高危问题。
+- 关键前提被推翻。
+- 当前路线连续多轮无实质进展，但仍存在替代路线。
 - Reviewer 给出 fatal / major issue。
-- 预算仍允许，且继续有明确修复方向。
 
-允许 BEST_EFFORT 的典型条件：
+允许 `BEST_EFFORT` 的典型条件：
 
 - 预算耗尽。
-- 多轮无进展。
-- 所有路线都有不可修复阻断项。
-- 外部工具不可用，但可以给出清晰的已验证/未验证边界。
+- 所有可行路线均停止进展。
+- 外部工具不可用，但仍能说明已验证与未验证边界。
+- 问题本身超出当前模型和 runtime 的可解决范围。
 
-BEST_EFFORT 必须明确说明：已完成部分、未完成部分、阻断原因、可信边界和下一步建议。
+`BEST_EFFORT` 必须明确说明已完成部分、未完成部分、阻断原因和可信边界。
 
-## 7. Review Severity
-
-ReviewGate / Critic 输出的问题必须分级，避免无限打磨：
+## 8. Review Severity
 
 ```ts
 type ReviewSeverity = "fatal" | "major" | "minor" | "style"
 ```
 
-处理建议：
-
-- `fatal`：禁止 FINAL，必须修复或失败。
+- `fatal`：禁止 FINAL，必须回溯、修复或失败。
 - `major`：通常禁止 FINAL，除非预算耗尽并进入 BEST_EFFORT。
-- `minor`：可以按任务重要性决定是否继续。
+- `minor`：按任务重要性决定是否继续。
 - `style`：不应阻断 FINAL。
 
-## 8. 数学推理默认门槛
-
-数学场景下，结束条件应更硬：
+## 9. 数学推理默认门槛
 
 - 变量定义一致。
-- 关键代数步骤经过符号验证或人工可审查推导。
-- 最终答案已代回原条件或形成逻辑闭环。
-- 检查定义域、边界值、特殊值。
-- 检查是否漏根、增根、除以零、偷换条件。
+- 关键代数步骤经过符号验证或可审查推导。
+- 最终答案代回原条件或形成逻辑闭环。
+- 检查定义域、边界值和特殊值。
+- 检查漏根、增根、除以零和偷换条件。
 - 证明类题目不能把数值验证当作完整证明。
 
-## 9. 与 multi-agent-protocol 的关系
+## 10. 与其他规范的关系
 
-本文档补充 `docs/multi-agent-protocol.md`：
+- `docs/multi-agent-protocol.md` 规定 AgentTeam 的通信、路线、验证和 ReviewGate。
+- 本文档规定中心引擎如何把模型的 Agentic 动作组织成长期推理循环。
+- AgentTeam 只是可选执行策略，不能绕过 Shared Reasoning State、ToolTrace、ReviewGate 或 StopController。
+- 当单模型已经能够可靠完成某个环节时，应减少无收益的角色拆分和额外调用。
 
-- `multi-agent-protocol.md` 规定 AgentTeam 的角色、路线、验证和 ReviewGate。
-- 本文档规定中心引擎如何把“一次请求一次响应”的模型 API 组织成多轮工具推理循环。
-- 任何 AgentTeam 输出都必须落入本文档的 harness 控制循环，不能绕过 Shared Context、ToolTrace、ReviewGate 或 StopController。
+## 11. 一句话原则
 
-## 10. 一句话原则
-
-OpenO1 不是让模型在单次调用里变成 heavy model，而是用 harness 把普通模型组织进一个可审阅、可验证、可修复、可终止的推理外骨骼。
+> **Turn agentic capability into reasoning capability.**
 
 ```text
-reason -> tool -> observe -> revise -> review -> final
+hypothesize -> act -> observe -> verify -> branch/backtrack -> synthesize
 ```
