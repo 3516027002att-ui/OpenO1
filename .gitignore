@@ -1,3 +1,8 @@
 reference project/
 AGENTS.md
 local-notes/
+
+# graphify (local knowledge graph - do not commit)
+graphify-out/
+**/graphify-out/
+raw/
