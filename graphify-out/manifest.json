@@ -1,0 +1,42 @@
+{
+  "engine.py": {
+    "mtime": 1780071368.826717,
+    "ast_hash": "3d45bfeaf9c5b54cba013a910dc3754c",
+    "semantic_hash": "3d45bfeaf9c5b54cba013a910dc3754c"
+  },
+  "tests/test_engine.py": {
+    "mtime": 1780071164.2906494,
+    "ast_hash": "6ee0b19712ed1d2e83be6f85788ba59a",
+    "semantic_hash": "6ee0b19712ed1d2e83be6f85788ba59a"
+  },
+  "README.md": {
+    "mtime": 1780071164.2891135,
+    "ast_hash": "87294aa6ea9e3f135d351a1d0b0aa2df",
+    "semantic_hash": "87294aa6ea9e3f135d351a1d0b0aa2df"
+  },
+  "docs/context-lifecycle.md": {
+    "mtime": 1780069672.2947538,
+    "ast_hash": "a1db8bd63dc0e3aeb1b25c37869b99ef",
+    "semantic_hash": "a1db8bd63dc0e3aeb1b25c37869b99ef"
+  },
+  "docs/external-lessons/agentscope.md": {
+    "mtime": 1780069672.2958298,
+    "ast_hash": "5c6ba653aea7e3494d1f01e70cc3fb50",
+    "semantic_hash": "5c6ba653aea7e3494d1f01e70cc3fb50"
+  },
+  "docs/external-project-lessons.md": {
+    "mtime": 1780069672.2963564,
+    "ast_hash": "019077d5ead1c81356c2b9ca3497cd4c",
+    "semantic_hash": "019077d5ead1c81356c2b9ca3497cd4c"
+  },
+  "docs/multi-agent-protocol.md": {
+    "mtime": 1779551797.8346274,
+    "ast_hash": "747291338e6771e595a5993d5a918337",
+    "semantic_hash": "747291338e6771e595a5993d5a918337"
+  },
+  "\u4fee\u6539\u8bb0\u5f55.md": {
+    "mtime": 1779122622.5687976,
+    "ast_hash": "5d134a8bc880573387e8c8926ab6b118",
+    "semantic_hash": "5d134a8bc880573387e8c8926ab6b118"
+  }
+}
