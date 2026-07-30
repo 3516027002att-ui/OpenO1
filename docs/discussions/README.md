@@ -13,6 +13,7 @@
 - 通用任务契约与验证计划
 - Agent 职责、角色和运行时映射
 - 工具能力目录、动态暴露和路由恢复
+- 分级能力授权与执行环境
 - 代码、搜索、文档等任务类型的扩展方案
 - 项目阶段性架构决策与研究假设
 
@@ -55,3 +56,4 @@
 | 2026-07-13 | `2026-07-13-tool-capability-architecture.md` | 工具能力架构、动态工具视图与误判恢复 | 草案 |
 | 2026-07-13 | `2026-07-13-agent-role-consolidation.md` | Agent 职责、角色与运行实体的收敛设计 | 草案 |
 | 2026-07-13 | `2026-07-13-system-level-reasoning-positioning.md` | 系统级推理定位与能力补偿研究假设 | 草案 |
+| 2026-07-30 | `2026-07-30-tiered-execution-environments.md` | 分级能力授权、按需 Linux 与 Execution Broker | 已采纳 |
