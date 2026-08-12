@@ -39,12 +39,14 @@ DSH 的公开/残留架构信息里，有几项设计对 OpenO1 很有参考价�
 负责用户可见与交互侧能力，例如：
 
 - 工具调用展示；
-- Agent 当前状态；
-- 任务树、分支、subagent 状态；
+- Agent 当前高层状态；
+- subagent / worker 的高层状态；
 - 运行日志和证据；
 - 结构化结果组件；
 - 插件自定义 UI；
 - 用户中途干预、批准、取消或修改任务。
+
+这里需要明确区分“可观测运行状态”和“内部推理结构”：OpenO1 的内部 Session / Reasoning Tree、分支搜索结构和模型回溯路径默认不进入 Client Surface，也不直接暴露给用户。
 
 ### 对 OpenO1 的意义
 
@@ -104,9 +106,8 @@ Capability Broker 不只返回 tool schema，还可以返回一个完整 capabil
 - 当前 Goal；
 - 当前 Phase / Step；
 - 正在调用的 Tool；
-- 当前活跃分支；
-- subagent / worker 状态；
-- 已完成与未决任务；
+- subagent / worker 的高层状态；
+- 已完成与未决任务的摘要；
 - Context 使用量；
 - Input / Output token；
 - Cache hit；
@@ -116,6 +117,12 @@ Capability Broker 不只返回 tool schema，还可以返回一个完整 capabil
 - 最近一次产生实质进展的时间；
 - 最近新增的证据、结论或状态变化；
 - 是否正在等待用户、工具、外部资源或其他 agent。
+
+### 用户可见边界
+
+Observability 不等于暴露模型内部搜索空间。内部 Reasoning Tree、候选分支数量、具体回溯节点、被否决的内部路线等默认保持隐藏。
+
+UI 只需要回答用户真正关心的问题：任务是否还在推进、当前大致处于什么阶段、资源消耗如何、是否发生错误、是否需要用户介入、最近产生了什么可公开进展。
 
 ### 目标
 
@@ -128,7 +135,7 @@ Capability Broker 不只返回 tool schema，还可以返回一个完整 capabil
 - Context / budget 接近限制；
 - 任务已经实质停滞。
 
-Agent 自主性越高，observability 越应该是一等功能。OpenO1 的长时间任务、分支、回溯和计算分配尤其需要这一层。
+Agent 自主性越高，observability 越应该是一等功能。OpenO1 的长时间任务、内部回溯和计算分配尤其需要这一层，但内部推理结构与用户可见状态应保持隔离。
 
 ---
 
@@ -213,7 +220,7 @@ Capability
 │   └── Lifecycle
 ├── Client Surface
 │   ├── UI components
-│   ├── State view
+│   ├── Public state view
 │   └── User interventions
 ├── Observability
 │   ├── Trace
@@ -226,15 +233,17 @@ Capability
 
 这可以作为 Tool Broker、Context Broker、Execution Broker、Skill 系统和前端 UI 之间更高一级的统一抽象。
 
+内部 Session / Reasoning Tree 属于 Host / Runtime 的私有认知状态，不属于 Client Surface 的默认公开状态。
+
 ---
 
 ## 7. 当前结论
 
 这五项设计均值得在 OpenO1 后续架构中优先保留：
 
-- **Host / Client 双 Surface**：把模型能力、运行时实现和 UI 表现统一起来；
+- **Host / Client 双 Surface**：把模型能力、运行时实现和 UI 表现统一起来，同时维持内部认知状态与公开状态的边界；
 - **Prompt 插件化**：让上下文随 capability 动态组合，并保持来源可追踪；
-- **Agent 状态 UI 化**：把长期自主 Agent 的 observability 做成产品能力；
+- **Agent 状态 UI 化**：把长期自主 Agent 的 observability 做成产品能力，但不直接暴露内部 Reasoning Tree；
 - **Fail-fast invariant**：尽早阻断非法状态传播，配合显式恢复策略；
 - **Cordis 式插件 Runtime**：为生命周期、隔离、caller tracking、热加载和长期异步任务提供基础设施。
 
