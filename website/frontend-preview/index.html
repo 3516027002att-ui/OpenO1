@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenO1 · Iridescent White V3</title>
+
+  <style>
+    :root {
+      --ink-1: rgba(18, 20, 22, .92);
+      --ink-2: rgba(18, 20, 22, .56);
+      --ink-3: rgba(18, 20, 22, .34);
+
+      --line-soft: rgba(20, 24, 28, .036);
+      --line: rgba(20, 24, 28, .052);
+
+      --surface-sidebar: rgba(255, 255, 255, .72);
+      --surface-composer: rgba(255, 255, 255, .93);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      overflow: hidden;
+      background: #fbfbf9;
+      color: var(--ink-1);
+      font-family:
+        Inter,
+        "SF Pro Text",
+        "SF Pro Display",
+        "Segoe UI",
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+    }
+
+    .ambient {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .ambient::before,
+    .ambient::after {
+      content: "";
+      position: absolute;
+      inset: -8%;
+      will-change: transform;
+    }
+
+    .ambient::before {
+      background:
+        radial-gradient(
+          ellipse 82% 94% at 53% 42%,
+          rgba(255, 114, 94, .082) 0%,
+          rgba(255, 150, 128, .044) 40%,
+          rgba(255, 178, 158, .016) 60%,
+          transparent 78%
+        ),
+        radial-gradient(
+          ellipse 74% 84% at 1% 5%,
+          rgba(65, 230, 168, .060) 0%,
+          rgba(105, 228, 188, .028) 42%,
+          transparent 76%
+        ),
+        radial-gradient(
+          ellipse 82% 92% at 100% 100%,
+          rgba(78, 168, 255, .057) 0%,
+          rgba(120, 194, 255, .026) 44%,
+          transparent 78%
+        ),
+        radial-gradient(
+          ellipse 66% 74% at 4% 100%,
+          rgba(255, 168, 70, .036) 0%,
+          rgba(255, 190, 120, .014) 44%,
+          transparent 74%
+        );
+
+      animation: drift-a 58s ease-in-out infinite alternate;
+    }
+
+    .ambient::after {
+      background:
+        radial-gradient(
+          ellipse 58% 60% at 78% 18%,
+          rgba(100, 220, 195, .024) 0%,
+          transparent 72%
+        ),
+        radial-gradient(
+          ellipse 54% 62% at 26% 72%,
+          rgba(255, 135, 112, .026) 0%,
+          transparent 74%
+        ),
+        radial-gradient(
+          ellipse 50% 58% at 72% 72%,
+          rgba(120, 175, 255, .020) 0%,
+          transparent 76%
+        );
+
+      animation: drift-b 72s ease-in-out infinite alternate;
+    }
+
+    @keyframes drift-a {
+      0% {
+        transform: translate3d(-1.2%, -.7%, 0) scale(1.01);
+      }
+      50% {
+        transform: translate3d(.8%, .45%, 0) scale(1.025);
+      }
+      100% {
+        transform: translate3d(.15%, -.55%, 0) scale(1.015);
+      }
+    }
+
+    @keyframes drift-b {
+      0% {
+        transform: translate3d(.8%, -.45%, 0) scale(1.01);
+      }
+      100% {
+        transform: translate3d(-.9%, .55%, 0) scale(1.02);
+      }
+    }
+
+    .app {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: 228px minmax(0, 1fr);
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .sidebar {
+      min-height: 0;
+      padding: 14px 10px 12px;
+      display: flex;
+      flex-direction: column;
+
+      background: var(--surface-sidebar);
+      border: 1px solid var(--line-soft);
+      border-radius: 18px;
+
+      box-shadow:
+        0 1px 1px rgba(20, 24, 28, .012);
+    }
+
+    .brand {
+      height: 44px;
+      padding: 0 9px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -.018em;
+    }
+
+    .brand-mark {
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+
+      background: rgba(255, 255, 255, .82);
+      border: 1px solid rgba(20, 24, 28, .045);
+
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(18, 20, 22, .78);
+    }
+
+    .nav {
+      margin-top: 14px;
+      display: grid;
+      gap: 3px;
+    }
+
+    .nav-item {
+      height: 36px;
+      padding: 0 10px;
+      border-radius: 9px;
+
+      display: flex;
+      align-items: center;
+      gap: 9px;
+
+      color: var(--ink-2);
+      font-size: 13px;
+
+      transition:
+        color 150ms ease,
+        background 150ms ease;
+    }
+
+    .nav-item:hover {
+      color: var(--ink-1);
+      background: rgba(255, 255, 255, .40);
+    }
+
+    .nav-item.active {
+      color: var(--ink-1);
+      background: rgba(255, 255, 255, .72);
+    }
+
+    .nav-icon {
+      width: 15px;
+      text-align: center;
+      font-size: 12px;
+      color: rgba(18, 20, 22, .43);
+    }
+
+    .sidebar-foot {
+      margin-top: auto;
+      padding: 0 10px 4px;
+      font-size: 11px;
+      color: var(--ink-3);
+    }
+
+    .workspace {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+
+      display: flex;
+      flex-direction: column;
+
+      border: 1px solid rgba(20, 24, 28, .024);
+      border-radius: 18px;
+
+      background: rgba(255, 255, 255, .16);
+    }
+
+    .topbar {
+      height: 56px;
+      flex: 0 0 auto;
+      padding: 0 18px;
+
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+
+      border-bottom: 1px solid rgba(20, 24, 28, .026);
+      background: rgba(255, 255, 255, .10);
+    }
+
+    .page-title {
+      font-size: 13px;
+      font-weight: 570;
+      letter-spacing: -.012em;
+    }
+
+    .status {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+
+      display: flex;
+      align-items: center;
+      gap: 7px;
+
+      border: 1px solid rgba(20, 24, 28, .034);
+      background: rgba(255, 255, 255, .52);
+
+      color: rgba(18, 20, 22, .47);
+      font-size: 11px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(95, 166, 134, .75);
+    }
+
+    .content {
+      flex: 1;
+      min-height: 0;
+
+      display: grid;
+      place-items: center;
+
+      padding: 40px;
+    }
+
+    .hero {
+      width: min(680px, 92%);
+      text-align: center;
+      transform: translateY(-3.8vh);
+    }
+
+    .glyph {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 24px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 15px;
+      border: 1px solid rgba(20, 24, 28, .042);
+      background: rgba(255, 255, 255, .68);
+
+      color: rgba(18, 20, 22, .84);
+      font-size: 20px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 3.2vw, 45px);
+      line-height: 1.08;
+
+      font-weight: 570;
+      letter-spacing: -.052em;
+
+      color: rgba(15, 17, 19, .91);
+    }
+
+    .subtitle {
+      max-width: 520px;
+      margin: 14px auto 0;
+
+      color: rgba(18, 20, 22, .47);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .composer {
+      margin-top: 34px;
+      padding: 7px;
+
+      border-radius: 16px;
+      border: 1px solid rgba(20, 24, 28, .050);
+      background: var(--surface-composer);
+
+      box-shadow:
+        0 12px 34px rgba(22, 26, 31, .032),
+        0 1px 2px rgba(22, 26, 31, .015);
+
+      text-align: left;
+    }
+
+    textarea {
+      width: 100%;
+      height: 70px;
+      resize: none;
+
+      padding: 13px 13px 8px;
+
+      outline: none;
+      border: 0;
+      background: transparent;
+
+      color: var(--ink-1);
+      font: inherit;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    textarea::placeholder {
+      color: rgba(18, 20, 22, .27);
+    }
+
+    .composer-row {
+      height: 36px;
+      padding: 0 3px 2px 5px;
+
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .tools {
+      display: flex;
+      gap: 5px;
+    }
+
+    button {
+      height: 28px;
+      padding: 0 9px;
+
+      border-radius: 8px;
+      border: 1px solid rgba(20, 24, 28, .046);
+      background: rgba(255, 255, 255, .56);
+
+      color: rgba(18, 20, 22, .48);
+
+      font: inherit;
+      font-size: 11px;
+
+      cursor: pointer;
+
+      transition:
+        color 140ms ease,
+        background 140ms ease,
+        transform 140ms ease;
+    }
+
+    button:hover {
+      color: rgba(18, 20, 22, .72);
+      background: rgba(255, 255, 255, .90);
+    }
+
+    button:active {
+      transform: scale(.975);
+    }
+
+    .send {
+      width: 29px;
+      padding: 0;
+
+      border-color: transparent;
+      border-radius: 9px;
+
+      background: rgba(22, 25, 28, .88);
+      color: rgba(255, 255, 255, .95);
+    }
+
+    .send:hover {
+      background: rgba(15, 18, 20, .96);
+      color: white;
+    }
+
+    body.thinking .ambient::before {
+      animation: thinking-a 26s ease-in-out infinite alternate;
+    }
+
+    body.thinking .ambient::after {
+      animation: thinking-b 34s ease-in-out infinite alternate;
+    }
+
+    body.thinking .status-dot {
+      animation: pulse 1.9s ease-in-out infinite;
+    }
+
+    @keyframes thinking-a {
+      0% {
+        transform: translate3d(-1.4%, -.85%, 0) scale(1.012);
+      }
+      100% {
+        transform: translate3d(1.1%, .65%, 0) scale(1.032);
+      }
+    }
+
+    @keyframes thinking-b {
+      0% {
+        transform: translate3d(.8%, -.5%, 0) scale(1.012);
+      }
+      100% {
+        transform: translate3d(-1%, .7%, 0) scale(1.026);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: .50;
+      }
+      50% {
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 800px) {
+      .app {
+        grid-template-columns: 1fr;
+        padding: 8px;
+      }
+
+      .sidebar {
+        display: none;
+      }
+
+      .content {
+        padding: 24px;
+      }
+
+      .hero {
+        width: min(640px, 100%);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ambient::before,
+      .ambient::after,
+      .status-dot {
+        animation: none !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="ambient"></div>
+
+  <main class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">O</div>
+        <span>OpenO1</span>
+      </div>
+
+      <nav class="nav">
+        <div class="nav-item active">
+          <span class="nav-icon">✦</span>
+          <span>新任务</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">⌕</span>
+          <span>搜索</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">□</span>
+          <span>项目</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">↗</span>
+          <span>活动</span>
+        </div>
+      </nav>
+
+      <div class="sidebar-foot">Local agent · Ready</div>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <div class="page-title">新任务</div>
+
+        <div class="status">
+          <span class="status-dot"></span>
+          <span id="statusText">Ready</span>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="hero">
+          <div class="glyph">✦</div>
+
+          <h1>今天想做什么？</h1>
+
+          <div class="subtitle">
+            探索、推理、构建与行动。界面保持清透，流光只作为环境存在。
+          </div>
+
+          <div class="composer">
+            <textarea
+              id="prompt"
+              placeholder="描述一个任务，或直接开始提问…"
+            ></textarea>
+
+            <div class="composer-row">
+              <div class="tools">
+                <button>＋</button>
+                <button>Tools</button>
+                <button>Model</button>
+              </div>
+
+              <button
+                class="send"
+                id="sendButton"
+                aria-label="Send"
+              >
+                ↑
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const sendButton = document.querySelector("#sendButton");
+    const statusText = document.querySelector("#statusText");
+
+    let thinking = false;
+
+    sendButton.addEventListener("click", () => {
+      thinking = !thinking;
+
+      document.body.classList.toggle("thinking", thinking);
+      statusText.textContent = thinking ? "Thinking" : "Ready";
+    });
+  </script>
+</body>
+</html>
