@@ -1,8 +1,8 @@
-from engine import (
+from heraclitus import (
     ExecutionMode,
     ExecutionResult,
     ExecutionStatus,
-    OpenO1Engine,
+    Heraclitus,
     SharedState,
     UserRequest,
 )
@@ -25,7 +25,7 @@ class TeamRuntime:
 
 
 def test_engine_runs_single_agent_path() -> None:
-    engine = OpenO1Engine(runtimes=[EchoRuntime()])
+    engine = Heraclitus(runtimes=[EchoRuntime()])
 
     result = engine.run(UserRequest(goal="summarize a short note"))
 
@@ -37,7 +37,7 @@ def test_engine_runs_single_agent_path() -> None:
 
 
 def test_engine_routes_complex_task_to_agent_team() -> None:
-    engine = OpenO1Engine(runtimes=[TeamRuntime()])
+    engine = Heraclitus(runtimes=[TeamRuntime()])
 
     result = engine.run(UserRequest(goal="证明一个多步骤数学推导并验证每一步"))
 
@@ -48,7 +48,7 @@ def test_engine_routes_complex_task_to_agent_team() -> None:
 
 
 def test_engine_fails_when_runtime_is_missing() -> None:
-    engine = OpenO1Engine(runtimes=[])
+    engine = Heraclitus(runtimes=[])
 
     result = engine.run(UserRequest(goal="summarize a short note"))
 
@@ -64,7 +64,7 @@ def test_review_gate_rejects_pass_without_output() -> None:
         def execute(self, state: SharedState) -> ExecutionResult:
             return ExecutionResult(status=ExecutionStatus.PASS, output=None)
 
-    engine = OpenO1Engine(runtimes=[EmptyRuntime()])
+    engine = Heraclitus(runtimes=[EmptyRuntime()])
 
     result = engine.run(UserRequest(goal="summarize a short note"))
 
